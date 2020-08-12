@@ -1,0 +1,50 @@
+---
+- name: Not Implemented
+  fail:
+    msg: This set of tasks has not been implemented.
+  when: ansible_pkg_mgr == 'zypper'
+
+- name: Upstream block
+  become: true
+  block:
+    - name: Set up docker mirrors
+      include_role:
+        name: use-docker-mirror
+
+    - name: Add all repositories
+      include_role:
+        name: ensure-package-repositories
+      vars:
+        repositories_keys: "{{ _docker_keys }}"
+        repositories_list: "{{ _docker_repos }}"
+
+    # Workaround for docker-ce installation failure due conflict with containerd.io
+    # https://bugzilla.redhat.com/show_bug.cgi?id=1756473#c1
+    - name: Patch docker-ce.repo for newer RedHat distros
+      when: ansible_os_family == 'RedHat' and ansible_distribution_major_version == '8'
+      ini_file:
+        path: /etc/yum.repos.d/docker-ce.repo
+        section: docker-ce-stable
+        option: module_hotfixes
+        value: "True"
+        no_extra_spaces: true
+        create: false
+
+    - name: Install pre-reqs
+      package:
+        name: "{{ _docker_upstream_distro_required_packages }}"
+        state: present
+
+    - name: Remove packages
+      package:
+        name: "{{ docker_upstream_distro_remove_packages }}"
+        state: absent
+      when: docker_upstream_distro_remove_packages
+
+    - name: Install upstream docker using package
+      package:
+        name: "{{ docker_upstream_distro_packages }}"
+        state: present
+      notify: Restart docker
+
+    - include_tasks: docker-setup.yaml

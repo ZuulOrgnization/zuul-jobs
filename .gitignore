@@ -1,0 +1,15 @@
+*.pyc
+*~
+
+# Unit test / coverage reports
+.coverage
+.tox
+.stestr
+
+# Sphinx
+doc/build
+
+# pbr generates these
+AUTHORS
+ChangeLog
+dist
